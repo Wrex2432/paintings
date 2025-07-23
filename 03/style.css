@@ -1,0 +1,40 @@
+/* Fill entire screen with PNG animation */
+#canvas-png {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: black;
+  z-index: 1;
+}
+
+/* Webcam feed hidden */
+#webcam {
+  display: none;
+}
+
+/* Detection boxes (optional, could be removed if not used) */
+#detection-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+/* Status loading prompt */
+#status {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(31, 41, 55, 0.8); /* Tailwind slate-800 */
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  font-size: 1rem;
+  z-index: 2;
+}

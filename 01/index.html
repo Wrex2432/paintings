@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carabao Painting</title>
+  <script type="module" src="./script.js"></script>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head>
+<body>
+  <video id="webcam" autoplay playsinline muted></video>
+  <div id="detection-container"></div>
+  <div id="canvas-png"></div>
+
+  <div id="status">
+    <span id="status-text">Loading model...</span>
+  </div>
+</body>
+</html>
