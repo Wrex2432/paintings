@@ -34,6 +34,7 @@ async function getFrameCount(folder, prefix) {
   while (true) {
     const padded = frame.toString().padStart(2, '0');
     const url = `${folder}${prefix}${padded}.png`;
+    console.log(`🔍 Checking: ${url}`);
     const exists = await testImage(url);
     if (!exists) break;
     frame++;
@@ -46,7 +47,7 @@ function testImage(url) {
     const img = new Image();
     img.onload = () => resolve(true);
     img.onerror = () => resolve(false);
-    img.src = url + `?v=${Date.now()}`;
+    img.src = url + `?v=${Date.now()}`; // bust cache
   });
 }
 
@@ -68,17 +69,23 @@ function playSequence(folder, endImage, onComplete = null) {
 }
 
 async function setupCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
-    audio: false
-  });
-  webcam.srcObject = stream;
-  return new Promise(resolve => {
-    webcam.onloadedmetadata = () => {
-      webcam.play();
-      resolve();
-    };
-  });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
+      audio: false
+    });
+    webcam.srcObject = stream;
+    return new Promise(resolve => {
+      webcam.onloadedmetadata = () => {
+        webcam.play();
+        resolve();
+      };
+    });
+  } catch (err) {
+    statusText.textContent = '❌ Camera access denied.';
+    console.error('Camera error:', err);
+    throw err;
+  }
 }
 
 function startDetection() {
@@ -116,16 +123,26 @@ async function detectObjects() {
 
 async function init() {
   imgElement.src = staticDefault;
-  totalFrames = await getFrameCount(animateInPath, filePrefix);
 
   statusText.textContent = 'Loading model...';
-  model = await cocoSsd.load();
+  try {
+    model = await cocoSsd.load();
+    console.log('✅ Model loaded');
 
-  await setupCamera();
-  startDetection();
+    totalFrames = await getFrameCount(animateInPath, filePrefix);
+    if (totalFrames < 0) {
+      statusText.textContent = '❌ No PNG frames found.';
+      return;
+    }
 
-  // Hide status after a second
-  statusWrapper.style.display = 'none';
+    await setupCamera();
+    startDetection();
+
+    statusWrapper.style.display = 'none';
+  } catch (err) {
+    console.error('Initialization error:', err);
+    statusText.textContent = '❌ Initialization failed.';
+  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
