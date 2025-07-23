@@ -10,8 +10,8 @@ let detectionInterval = null;
 let lastDetectionTime = 0;
 let currentState = 'default';
 let frameInterval = null;
-let totalFrames = 0;
 let frameRate = 60;
+let totalFrames = 60; // ⏩ Hardcoded for faster load
 
 const scene = 'Carabao Painting';
 const filePrefix = 'CarabaoPainting';
@@ -28,28 +28,6 @@ imgElement.style.width = '100%';
 imgElement.style.height = '100%';
 imgElement.style.objectFit = 'contain';
 canvasPng.appendChild(imgElement);
-
-async function getFrameCount(folder, prefix) {
-  let frame = 0;
-  while (true) {
-    const padded = frame.toString().padStart(2, '0');
-    const url = `${folder}${prefix}${padded}.png`;
-    console.log(`🔍 Checking: ${url}`);
-    const exists = await testImage(url);
-    if (!exists) break;
-    frame++;
-  }
-  return frame - 1;
-}
-
-function testImage(url) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = url + `?v=${Date.now()}`; // bust cache
-  });
-}
 
 function playSequence(folder, endImage, onComplete = null) {
   clearInterval(frameInterval);
@@ -128,12 +106,6 @@ async function init() {
   try {
     model = await cocoSsd.load();
     console.log('✅ Model loaded');
-
-    totalFrames = await getFrameCount(animateInPath, filePrefix);
-    if (totalFrames < 0) {
-      statusText.textContent = '❌ No PNG frames found.';
-      return;
-    }
 
     await setupCamera();
     startDetection();
