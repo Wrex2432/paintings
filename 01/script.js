@@ -29,34 +29,34 @@ imgElement.style.height = '100%';
 imgElement.style.objectFit = 'contain';
 canvasPng.appendChild(imgElement);
 
-// ⏳ Preload images
-async function preloadImages() {
-  const imageUrls = [];
+function preloadAndPlaceImages () {
+  const preloadContainer = document.createElement('div');
+  preloadContainer.style.display = 'none';
+  document.body.appendChild(preloadContainer);
 
-  // Default & Removed PNGs
-  imageUrls.push(staticDefault);
-  imageUrls.push(staticRemoved);
+  const sources = [];
+
+  // Static frames
+  sources.push(staticDefault);
+  sources.push(staticRemoved);
 
   // Frame sequences
   for (let i = 0; i <= totalFrames; i++) {
     const padded = i.toString().padStart(2, '0');
-    imageUrls.push(`${animateInPath}${filePrefix}${padded}.png`);
-    imageUrls.push(`${animateOutPath}${filePrefix}${padded}.png`);
+    sources.push(`${animateInPath}${filePrefix}${padded}.png`);
+    sources.push(`${animateOutPath}${filePrefix}${padded}.png`);
   }
 
-  const loadImage = (src) =>
-    new Promise((resolve) => {
-      const img = new Image();
-      img.onload = resolve;
-      img.onerror = resolve; // resolve even if failed (skip file)
-      img.src = src;
-    });
-
-  statusText.textContent = 'Preloading images...';
-
-  await Promise.all(imageUrls.map(loadImage));
-
-  console.log('✅ All PNGs preloaded');
+  return Promise.all(
+    sources.map(src => {
+      return new Promise(resolve => {
+        const img = document.createElement('img');
+        img.src = src;
+        img.onload = img.onerror = resolve;
+        preloadContainer.appendChild(img); // force inclusion in build + preload
+      });
+    })
+  );
 }
 
 function playSequence(folder, endImage, onComplete = null) {
@@ -83,7 +83,7 @@ async function setupCamera() {
       audio: false
     });
     webcam.srcObject = stream;
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       webcam.onloadedmetadata = () => {
         webcam.play();
         resolve();
@@ -108,7 +108,7 @@ async function detectObjects() {
 
   let phoneDetected = false;
 
-  predictions.forEach((pred) => {
+  predictions.forEach(pred => {
     const predictionClass = pred.class.toLowerCase();
     if (phoneClasses.includes(predictionClass)) {
       phoneDetected = true;
@@ -130,14 +130,16 @@ async function detectObjects() {
 }
 
 async function init() {
+  imgElement.src = staticDefault;
   statusText.textContent = 'Loading model...';
+
   try {
     model = await cocoSsd.load();
     console.log('✅ Model loaded');
 
-    await preloadImages();
-
-    imgElement.src = staticDefault;
+    statusText.textContent = 'Preloading PNGs...';
+    await preloadAndPlaceImages();
+    console.log('✅ PNGs preloaded & injected');
 
     await setupCamera();
     startDetection();
