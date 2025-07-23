@@ -11,7 +11,7 @@ let lastDetectionTime = 0;
 let currentState = 'default';
 let frameInterval = null;
 let frameRate = 60;
-let totalFrames = 60; // ⏩ Hardcoded for faster load
+let totalFrames = 60;
 
 const scene = 'Carabao Painting';
 const filePrefix = 'CarabaoPainting';
@@ -28,6 +28,36 @@ imgElement.style.width = '100%';
 imgElement.style.height = '100%';
 imgElement.style.objectFit = 'contain';
 canvasPng.appendChild(imgElement);
+
+// ⏳ Preload images
+async function preloadImages() {
+  const imageUrls = [];
+
+  // Default & Removed PNGs
+  imageUrls.push(staticDefault);
+  imageUrls.push(staticRemoved);
+
+  // Frame sequences
+  for (let i = 0; i <= totalFrames; i++) {
+    const padded = i.toString().padStart(2, '0');
+    imageUrls.push(`${animateInPath}${filePrefix}${padded}.png`);
+    imageUrls.push(`${animateOutPath}${filePrefix}${padded}.png`);
+  }
+
+  const loadImage = (src) =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = resolve; // resolve even if failed (skip file)
+      img.src = src;
+    });
+
+  statusText.textContent = 'Preloading images...';
+
+  await Promise.all(imageUrls.map(loadImage));
+
+  console.log('✅ All PNGs preloaded');
+}
 
 function playSequence(folder, endImage, onComplete = null) {
   clearInterval(frameInterval);
@@ -53,7 +83,7 @@ async function setupCamera() {
       audio: false
     });
     webcam.srcObject = stream;
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       webcam.onloadedmetadata = () => {
         webcam.play();
         resolve();
@@ -78,7 +108,7 @@ async function detectObjects() {
 
   let phoneDetected = false;
 
-  predictions.forEach(pred => {
+  predictions.forEach((pred) => {
     const predictionClass = pred.class.toLowerCase();
     if (phoneClasses.includes(predictionClass)) {
       phoneDetected = true;
@@ -100,12 +130,14 @@ async function detectObjects() {
 }
 
 async function init() {
-  imgElement.src = staticDefault;
-
   statusText.textContent = 'Loading model...';
   try {
     model = await cocoSsd.load();
     console.log('✅ Model loaded');
+
+    await preloadImages();
+
+    imgElement.src = staticDefault;
 
     await setupCamera();
     startDetection();
