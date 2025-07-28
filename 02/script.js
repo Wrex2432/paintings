@@ -12,6 +12,7 @@ let currentState = 'default';
 let frameInterval = null;
 let frameRate = 60;
 let reconnectInterval = null;
+let isAnimating = false;
 
 const scene = 'Fruit Seller';
 const filePrefix = 'Fruit Seller';
@@ -102,6 +103,9 @@ function hideAllFrames() {
 }
 
 function playSequence(type, totalFrames, fallbackImage) {
+  if (isAnimating) return;
+  isAnimating = true;
+
   clearInterval(frameInterval);
   const frames = imageMap[type];
   let frame = 0;
@@ -111,6 +115,7 @@ function playSequence(type, totalFrames, fallbackImage) {
       clearInterval(frameInterval);
       hideAllFrames();
       fallbackImage.style.visibility = 'visible';
+      isAnimating = false;
       return;
     }
 
@@ -222,7 +227,7 @@ function startDetection() {
 }
 
 async function detectObjects() {
-  if (!model) return;
+  if (!model || isAnimating) return;
   const predictions = await model.detect(webcam);
 
   let phoneDetected = false;
