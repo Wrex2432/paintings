@@ -11,15 +11,17 @@ let lastDetectionTime = 0;
 let currentState = 'default';
 let frameInterval = null;
 let frameRate = 60;
-let totalFrames = 60;
 
 const scene = 'Carabao Painting';
 const filePrefix = 'CarabaoPainting';
 const basePath = `assets/${scene}/`;
 const animateInPath = `${basePath}Animate-In/`;
 const animateOutPath = `${basePath}Animate-Out/`;
-const staticDefault = `${basePath}Static/${filePrefix}Default.png`;
-const staticRemoved = `${basePath}Static/${filePrefix}Removed.png`;
+const staticDefault = `${basePath}Static/${filePrefix}.jpg`;
+const staticRemoved = `${basePath}Static/${filePrefix}_Edited.jpg`;
+
+const animateInTotalFrames = 60;
+const animateOutTotalFrames = 59;
 
 const phoneClasses = ['cell phone', 'mobile phone', 'remote'];
 
@@ -29,22 +31,28 @@ imgElement.style.height = '100%';
 imgElement.style.objectFit = 'contain';
 canvasPng.appendChild(imgElement);
 
-function preloadAndPlaceImages () {
+// Preload and inject all necessary images
+function preloadAndPlaceImages() {
   const preloadContainer = document.createElement('div');
   preloadContainer.style.display = 'none';
   document.body.appendChild(preloadContainer);
 
   const sources = [];
 
-  // Static frames
+  // Static images
   sources.push(staticDefault);
   sources.push(staticRemoved);
 
-  // Frame sequences
-  for (let i = 0; i <= totalFrames; i++) {
+  // Animate-In frames
+  for (let i = 0; i <= animateInTotalFrames; i++) {
     const padded = i.toString().padStart(2, '0');
-    sources.push(`${animateInPath}${filePrefix}${padded}.png`);
-    sources.push(`${animateOutPath}${filePrefix}${padded}.png`);
+    sources.push(`${animateInPath}${filePrefix}${padded}.jpg`);
+  }
+
+  // Animate-Out frames
+  for (let i = 0; i <= animateOutTotalFrames; i++) {
+    const padded = i.toString().padStart(2, '0');
+    sources.push(`${animateOutPath}${filePrefix}${padded}.jpg`);
   }
 
   return Promise.all(
@@ -53,25 +61,26 @@ function preloadAndPlaceImages () {
         const img = document.createElement('img');
         img.src = src;
         img.onload = img.onerror = resolve;
-        preloadContainer.appendChild(img); // force inclusion in build + preload
+        preloadContainer.appendChild(img); // Ensures inclusion + preload
       });
     })
   );
 }
 
-function playSequence(folder, endImage, onComplete = null) {
+// Plays a specific animation sequence with its frame count
+function playSequence(folder, frameCount, endImage, onComplete = null) {
   clearInterval(frameInterval);
   let frame = 0;
 
   frameInterval = setInterval(() => {
-    if (frame > totalFrames) {
+    if (frame > frameCount) {
       clearInterval(frameInterval);
       imgElement.src = endImage;
       if (onComplete) onComplete();
       return;
     }
     const padded = frame.toString().padStart(2, '0');
-    imgElement.src = `${folder}${filePrefix}${padded}.png`;
+    imgElement.src = `${folder}${filePrefix}${padded}.jpg`;
     frame++;
   }, frameRate);
 }
@@ -119,12 +128,12 @@ async function detectObjects() {
     lastDetectionTime = Date.now();
     if (currentState !== 'removed') {
       currentState = 'removed';
-      playSequence(animateOutPath, staticRemoved);
+      playSequence(animateOutPath, animateOutTotalFrames, staticRemoved);
     }
   } else if (Date.now() - lastDetectionTime > 3000) {
     if (currentState !== 'default') {
       currentState = 'default';
-      playSequence(animateInPath, staticDefault);
+      playSequence(animateInPath, animateInTotalFrames, staticDefault);
     }
   }
 }
@@ -137,9 +146,9 @@ async function init() {
     model = await cocoSsd.load();
     console.log('✅ Model loaded');
 
-    statusText.textContent = 'Preloading PNGs...';
+    statusText.textContent = 'Preloading images...';
     await preloadAndPlaceImages();
-    console.log('✅ PNGs preloaded & injected');
+    console.log('✅ Images preloaded and injected');
 
     await setupCamera();
     startDetection();
