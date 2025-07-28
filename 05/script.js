@@ -21,7 +21,7 @@ const animateOutPath = `${basePath}Animate-Out/`;
 const staticDefault = `${basePath}Static/${filePrefix}.jpg`;
 const staticRemoved = `${basePath}Static/${filePrefix}_Edited.jpg`;
 
-const animateInTotalFrames = 60;
+const animateInTotalFrames = 59;
 const animateOutTotalFrames = 59;
 const phoneClasses = ['cell phone', 'mobile phone', 'remote'];
 
