@@ -25,84 +25,117 @@ const animateOutTotalFrames = 59;
 
 const phoneClasses = ['cell phone', 'mobile phone', 'remote'];
 
-const imgElement = document.createElement('img');
-imgElement.style.width = '100%';
-imgElement.style.height = '100%';
-imgElement.style.objectFit = 'contain';
-canvasPng.appendChild(imgElement);
+// Storage for all image elements
+const imageMap = {
+  'in': [],
+  'out': [],
+  'default': null,
+  'removed': null
+};
 
-// Preload and inject all necessary images
+// Preload and insert all frames into canvasPng (Zoetrope style)
 function preloadAndPlaceImages() {
-  const preloadContainer = document.createElement('div');
-  preloadContainer.style.display = 'none';
-  document.body.appendChild(preloadContainer);
+  return new Promise(resolve => {
+    let loadCount = 0;
+    const totalToLoad = animateInTotalFrames + animateOutTotalFrames + 2;
 
-  const sources = [];
+    // Helper
+    const createFrame = (src, list) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.position = 'absolute';
+      img.style.top = 0;
+      img.style.left = 0;
+      img.style.visibility = 'hidden';
 
-  // Static images
-  sources.push(staticDefault);
-  sources.push(staticRemoved);
+      img.onload = img.onerror = () => {
+        loadCount++;
+        if (loadCount === totalToLoad) resolve();
+      };
 
-  // Animate-In frames
-  for (let i = 0; i <= animateInTotalFrames; i++) {
-    const padded = i.toString().padStart(2, '0');
-    sources.push(`${animateInPath}${filePrefix}${padded}.jpg`);
-  }
+      canvasPng.appendChild(img);
+      list.push(img);
+    };
 
-  // Animate-Out frames
-  for (let i = 0; i <= animateOutTotalFrames; i++) {
-    const padded = i.toString().padStart(2, '0');
-    sources.push(`${animateOutPath}${filePrefix}${padded}.jpg`);
-  }
+    // Default and Removed
+    imageMap.default = document.createElement('img');
+    imageMap.default.src = staticDefault;
+    imageMap.default.style = "width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;";
+    canvasPng.appendChild(imageMap.default);
 
-  return Promise.all(
-    sources.map(src => {
-      return new Promise(resolve => {
-        const img = document.createElement('img');
-        img.src = src;
-        img.onload = img.onerror = resolve;
-        preloadContainer.appendChild(img); // Ensures inclusion + preload
-      });
-    })
-  );
+    imageMap.removed = document.createElement('img');
+    imageMap.removed.src = staticRemoved;
+    imageMap.removed.style = "width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;visibility:hidden;";
+    canvasPng.appendChild(imageMap.removed);
+
+    imageMap.default.onload = imageMap.default.onerror = () => {
+      loadCount++;
+      if (loadCount === totalToLoad) resolve();
+    };
+    imageMap.removed.onload = imageMap.removed.onerror = () => {
+      loadCount++;
+      if (loadCount === totalToLoad) resolve();
+    };
+
+    // Animate-In
+    for (let i = 0; i <= animateInTotalFrames; i++) {
+      const padded = i.toString().padStart(2, '0');
+      const src = `${animateInPath}${filePrefix}${padded}.jpg`;
+      createFrame(src, imageMap.in);
+    }
+
+    // Animate-Out
+    for (let i = 0; i <= animateOutTotalFrames; i++) {
+      const padded = i.toString().padStart(2, '0');
+      const src = `${animateOutPath}${filePrefix}${padded}.jpg`;
+      createFrame(src, imageMap.out);
+    }
+  });
 }
 
-// Plays a specific animation sequence with its frame count
-function playSequence(folder, frameCount, endImage, onComplete = null) {
+function hideAllFrames() {
+  Object.values(imageMap.in).forEach(img => img.style.visibility = 'hidden');
+  Object.values(imageMap.out).forEach(img => img.style.visibility = 'hidden');
+  if (imageMap.default) imageMap.default.style.visibility = 'hidden';
+  if (imageMap.removed) imageMap.removed.style.visibility = 'hidden';
+}
+
+function playSequence(type, totalFrames, fallbackImage) {
   clearInterval(frameInterval);
+  const frames = imageMap[type];
   let frame = 0;
 
   frameInterval = setInterval(() => {
-    if (frame > frameCount) {
+    if (frame > totalFrames) {
       clearInterval(frameInterval);
-      imgElement.src = endImage;
-      if (onComplete) onComplete();
+      hideAllFrames();
+      fallbackImage.style.visibility = 'visible';
       return;
     }
-    const padded = frame.toString().padStart(2, '0');
-    imgElement.src = `${folder}${filePrefix}${padded}.jpg`;
+
+    hideAllFrames();
+    if (frames[frame]) {
+      frames[frame].style.visibility = 'visible';
+    }
     frame++;
   }, frameRate);
 }
 
 async function setupCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
-      audio: false
-    });
-    webcam.srcObject = stream;
-    return new Promise(resolve => {
-      webcam.onloadedmetadata = () => {
-        webcam.play();
-        resolve();
-      };
-    });
-  } catch (err) {
-    statusText.textContent = '❌ Camera access denied.';
-    console.error('Camera error:', err);
-    throw err;
-  }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
+    audio: false
+  });
+  webcam.srcObject = stream;
+  return new Promise(resolve => {
+    webcam.onloadedmetadata = () => {
+      webcam.play();
+      resolve();
+    };
+  });
 }
 
 function startDetection() {
@@ -128,36 +161,32 @@ async function detectObjects() {
     lastDetectionTime = Date.now();
     if (currentState !== 'removed') {
       currentState = 'removed';
-      playSequence(animateOutPath, animateOutTotalFrames, staticRemoved);
+      playSequence('out', animateOutTotalFrames, imageMap.removed);
     }
   } else if (Date.now() - lastDetectionTime > 3000) {
     if (currentState !== 'default') {
       currentState = 'default';
-      playSequence(animateInPath, animateInTotalFrames, staticDefault);
+      playSequence('in', animateInTotalFrames, imageMap.default);
     }
   }
 }
 
 async function init() {
-  imgElement.src = staticDefault;
   statusText.textContent = 'Loading model...';
+  model = await cocoSsd.load();
+  console.log('✅ Model loaded');
 
-  try {
-    model = await cocoSsd.load();
-    console.log('✅ Model loaded');
+  statusText.textContent = 'Placing images...';
+  await preloadAndPlaceImages();
+  console.log('✅ Frames loaded');
 
-    statusText.textContent = 'Preloading images...';
-    await preloadAndPlaceImages();
-    console.log('✅ Images preloaded and injected');
+  hideAllFrames();
+  imageMap.default.style.visibility = 'visible';
 
-    await setupCamera();
-    startDetection();
+  await setupCamera();
+  startDetection();
 
-    statusWrapper.style.display = 'none';
-  } catch (err) {
-    console.error('Initialization error:', err);
-    statusText.textContent = '❌ Initialization failed.';
-  }
+  statusWrapper.style.display = 'none';
 }
 
 window.addEventListener('DOMContentLoaded', init);

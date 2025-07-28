@@ -10,16 +10,18 @@ let detectionInterval = null;
 let lastDetectionTime = 0;
 let currentState = 'default';
 let frameInterval = null;
-let totalFrames = 0;
 let frameRate = 60;
+
+let animateInTotalFrames = 0;
+let animateOutTotalFrames = 0;
 
 const scene = 'Fruit Seller';
 const filePrefix = 'Fruit Seller';
 const basePath = `assets/${scene}/`;
 const animateInPath = `${basePath}Animate-In/`;
 const animateOutPath = `${basePath}Animate-Out/`;
-const staticDefault = `${basePath}Static/${filePrefix}Default.png`;
-const staticRemoved = `${basePath}Static/${filePrefix}Removed.png`;
+const staticDefault = `${basePath}Static/${filePrefix}Default.jpg`;
+const staticRemoved = `${basePath}Static/${filePrefix}Removed.jpg`;
 
 const phoneClasses = ['cell phone', 'mobile phone', 'remote'];
 
@@ -29,11 +31,12 @@ imgElement.style.height = '100%';
 imgElement.style.objectFit = 'contain';
 canvasPng.appendChild(imgElement);
 
+// Check how many frames exist in a given folder
 async function getFrameCount(folder, prefix) {
   let frame = 0;
   while (true) {
     const padded = frame.toString().padStart(2, '0');
-    const url = `${folder}${prefix}${padded}.png`;
+    const url = `${folder}${prefix}${padded}.jpg`;
     const exists = await testImage(url);
     if (!exists) break;
     frame++;
@@ -41,6 +44,7 @@ async function getFrameCount(folder, prefix) {
   return frame - 1;
 }
 
+// Check if an image exists
 function testImage(url) {
   return new Promise(resolve => {
     const img = new Image();
@@ -50,23 +54,25 @@ function testImage(url) {
   });
 }
 
-function playSequence(folder, endImage, onComplete = null) {
+// Play an animation sequence
+function playSequence(folder, frameCount, endImage, onComplete = null) {
   clearInterval(frameInterval);
   let frame = 0;
 
   frameInterval = setInterval(() => {
-    if (frame > totalFrames) {
+    if (frame > frameCount) {
       clearInterval(frameInterval);
       imgElement.src = endImage;
       if (onComplete) onComplete();
       return;
     }
     const padded = frame.toString().padStart(2, '0');
-    imgElement.src = `${folder}${filePrefix}${padded}.png`;
+    imgElement.src = `${folder}${filePrefix}${padded}.jpg`;
     frame++;
   }, frameRate);
 }
 
+// Set up webcam
 async function setupCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
@@ -81,12 +87,14 @@ async function setupCamera() {
   });
 }
 
+// Start detection
 function startDetection() {
   if (isDetecting) return;
   isDetecting = true;
   detectionInterval = setInterval(detectObjects, 300);
 }
 
+// Main detection logic
 async function detectObjects() {
   if (!model) return;
   const predictions = await model.detect(webcam);
@@ -104,27 +112,35 @@ async function detectObjects() {
     lastDetectionTime = Date.now();
     if (currentState !== 'removed') {
       currentState = 'removed';
-      playSequence(animateOutPath, staticRemoved);
+      playSequence(animateOutPath, animateOutTotalFrames, staticRemoved);
     }
   } else if (Date.now() - lastDetectionTime > 3000) {
     if (currentState !== 'default') {
       currentState = 'default';
-      playSequence(animateInPath, staticDefault);
+      playSequence(animateInPath, animateInTotalFrames, staticDefault);
     }
   }
 }
 
+// Initialization
 async function init() {
   imgElement.src = staticDefault;
-  totalFrames = await getFrameCount(animateInPath, filePrefix);
-
   statusText.textContent = 'Loading model...';
+
   model = await cocoSsd.load();
+  console.log('✅ Model loaded');
+
+  statusText.textContent = 'Counting animation frames...';
+  [animateInTotalFrames, animateOutTotalFrames] = await Promise.all([
+    getFrameCount(animateInPath, filePrefix),
+    getFrameCount(animateOutPath, filePrefix)
+  ]);
+  console.log(`🎞 Animate-In: ${animateInTotalFrames + 1} frames`);
+  console.log(`🎞 Animate-Out: ${animateOutTotalFrames + 1} frames`);
 
   await setupCamera();
   startDetection();
 
-  // Hide status after a second
   statusWrapper.style.display = 'none';
 }
 
