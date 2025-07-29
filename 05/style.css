@@ -1,3 +1,9 @@
+html, body {
+  width: 100vw;
+  height: 100vh;
+  background-color: black;
+}
+
 /* Fill entire screen with PNG animation */
 #canvas-png {
   position: fixed;
@@ -8,30 +14,6 @@
   background-color: black;
   overflow: hidden;
   z-index: 1;
-}
-
-
-/* Webcam feed hidden */
-#webcam {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: black;
-  overflow: hidden;
-  z-index: 1;
-}
-
-/* Detection boxes (optional, could be removed if not used) */
-#detection-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
 }
 
 /* Status loading prompt */
@@ -47,4 +29,77 @@
   font-weight: 500;
   font-size: 1rem;
   z-index: 2;
+}
+
+
+/* || */
+
+/* Container that wraps video and detection overlay */
+.video-container {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+  overflow: hidden;
+  background-color: black;
+}
+
+/* Webcam styling */
+#webcam {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  
+}
+
+/* Detection container overlaid on top of the video */
+#detection-container {
+  display: none; /* hidden by default */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 2;
+}
+
+
+/* Detection box */
+.detection-box {
+  position: absolute;
+  border: 3px solid #3B82F6;
+  background-color: rgba(59, 130, 246, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* Label inside box */
+.detection-label {
+  background-color: #3B82F6;
+  color: white;
+  padding: 2px 5px;
+  font-size: 0.75rem;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+/* Optional red pulse effect for phones */
+.pulse {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }

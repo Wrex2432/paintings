@@ -10,20 +10,23 @@ let detectionInterval = null;
 let lastDetectionTime = 0;
 let currentState = 'default';
 let frameInterval = null;
-let frameRate = 30;
 let reconnectInterval = null;
 let isAnimating = false;
+let videoDevices = [];
+let currentDeviceIndex = 0;
 
+const frameRate = 30;
 const scene = 'Fruit Seller';
 const filePrefix = 'Fruit Seller';
+const animateInTotalFrames = 69;
+const animateOutTotalFrames = 69;
+
 const basePath = `assets/${scene}/`;
 const animateInPath = `${basePath}Animate-In/`;
 const animateOutPath = `${basePath}Animate-Out/`;
 const staticDefault = `${basePath}Static/${filePrefix}.jpg`;
 const staticRemoved = `${basePath}Static/${filePrefix}_Edited.jpg`;
 
-const animateInTotalFrames = 69;
-const animateOutTotalFrames = 69;
 const phoneClasses = ['cell phone', 'mobile phone', 'remote'];
 
 const imageMap = {
@@ -33,30 +36,20 @@ const imageMap = {
   removed: null
 };
 
-let videoDevices = [];
-let currentDeviceIndex = 0;
-
-function preloadAndPlaceImages() {
+// Preload and inject all image frames
+function preloadAndPlaceImages () {
   return new Promise(resolve => {
     let loadCount = 0;
     const totalToLoad = animateInTotalFrames + animateOutTotalFrames + 2;
 
-    const createFrame = (src, list) => {
+    const addImg = (src, list) => {
       const img = document.createElement('img');
       img.src = src;
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-      img.style.position = 'absolute';
-      img.style.top = 0;
-      img.style.left = 0;
-      img.style.visibility = 'hidden';
-
+      img.style = 'width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;visibility:hidden;';
       img.onload = img.onerror = () => {
         loadCount++;
         if (loadCount === totalToLoad) resolve();
       };
-
       canvasPng.appendChild(img);
       list.push(img);
     };
@@ -64,48 +57,44 @@ function preloadAndPlaceImages() {
     // Default
     imageMap.default = document.createElement('img');
     imageMap.default.src = staticDefault;
-    imageMap.default.style = "width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;";
-    canvasPng.appendChild(imageMap.default);
+    imageMap.default.style = 'width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;';
     imageMap.default.onload = imageMap.default.onerror = () => {
       loadCount++;
       if (loadCount === totalToLoad) resolve();
     };
+    canvasPng.appendChild(imageMap.default);
 
     // Removed
     imageMap.removed = document.createElement('img');
     imageMap.removed.src = staticRemoved;
-    imageMap.removed.style = "width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;visibility:hidden;";
-    canvasPng.appendChild(imageMap.removed);
+    imageMap.removed.style = 'width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;visibility:hidden;';
     imageMap.removed.onload = imageMap.removed.onerror = () => {
       loadCount++;
       if (loadCount === totalToLoad) resolve();
     };
+    canvasPng.appendChild(imageMap.removed);
 
-    // Animate-In
     for (let i = 0; i <= animateInTotalFrames; i++) {
       const padded = i.toString().padStart(2, '0');
-      createFrame(`${animateInPath}${filePrefix}${padded}.jpg`, imageMap.in);
+      addImg(`${animateInPath}${filePrefix}${padded}.jpg`, imageMap.in);
     }
-
-    // Animate-Out
     for (let i = 0; i <= animateOutTotalFrames; i++) {
       const padded = i.toString().padStart(2, '0');
-      createFrame(`${animateOutPath}${filePrefix}${padded}.jpg`, imageMap.out);
+      addImg(`${animateOutPath}${filePrefix}${padded}.jpg`, imageMap.out);
     }
   });
 }
 
-function hideAllFrames() {
+function hideAllFrames () {
   imageMap.in.forEach(img => img.style.visibility = 'hidden');
   imageMap.out.forEach(img => img.style.visibility = 'hidden');
   if (imageMap.default) imageMap.default.style.visibility = 'hidden';
   if (imageMap.removed) imageMap.removed.style.visibility = 'hidden';
 }
 
-function playSequence(type, totalFrames, fallbackImage) {
+function playSequence (type, totalFrames, fallbackImage) {
   if (isAnimating) return;
   isAnimating = true;
-
   clearInterval(frameInterval);
   const frames = imageMap[type];
   let frame = 0;
@@ -118,58 +107,50 @@ function playSequence(type, totalFrames, fallbackImage) {
       isAnimating = false;
       return;
     }
-
     hideAllFrames();
-    if (frames[frame]) {
-      frames[frame].style.visibility = 'visible';
-    }
+    if (frames[frame]) frames[frame].style.visibility = 'visible';
     frame++;
   }, frameRate);
 }
 
-async function listVideoDevices() {
+async function listVideoDevices () {
   const devices = await navigator.mediaDevices.enumerateDevices();
-  videoDevices = devices.filter(device => device.kind === 'videoinput');
-  console.log('📷 Video Devices:', videoDevices);
+  videoDevices = devices.filter(d => d.kind === 'videoinput');
+  console.log('🎥 Devices:', videoDevices);
 }
 
-async function switchCamera() {
+async function switchCamera () {
   if (videoDevices.length <= 1) return;
 
   currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
-  console.log(`🔁 Switching to camera: ${videoDevices[currentDeviceIndex].label}`);
+  const selectedDevice = videoDevices[currentDeviceIndex];
+  console.log(`🔁 Switching to: ${selectedDevice.label}`);
 
-  if (webcam.srcObject) {
-    webcam.srcObject.getTracks().forEach(track => track.stop());
-  }
+  if (webcam.srcObject) webcam.srcObject.getTracks().forEach(track => track.stop());
 
-  const constraints = {
+  const stream = await navigator.mediaDevices.getUserMedia({
     video: {
-      deviceId: { exact: videoDevices[currentDeviceIndex].deviceId },
-      width: { ideal: 640 },
-      height: { ideal: 480 },
+      deviceId: { exact: selectedDevice.deviceId },
+      width: { ideal: 640 }, height: { ideal: 480 },
       facingMode: 'environment'
     },
     audio: false
-  };
+  });
 
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    webcam.srcObject = stream;
-    webcam.onloadedmetadata = () => webcam.play();
-  } catch (e) {
-    console.warn('❌ Failed to switch camera', e);
-  }
+  webcam.srcObject = stream;
+  webcam.onloadedmetadata = () => webcam.play();
 }
 
 function toggleDebugView() {
   const isHidden = canvasPng.style.display === 'none';
   canvasPng.style.display = isHidden ? 'block' : 'none';
   webcam.style.display = isHidden ? 'none' : 'block';
-  console.log(`🐞 Debug mode: ${isHidden ? 'Off (PNG active)' : 'On (Webcam visible)'}`);
+  detectionContainer.style.display = isHidden ? 'none' : 'block';
+  console.log(`🐞 Debug mode: ${isHidden ? 'Off (PNG active)' : 'On (Webcam visible + Detection Boxes)'}`);
 }
 
-async function setupCamera() {
+
+async function setupCamera () {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
@@ -182,15 +163,12 @@ async function setupCamera() {
       webcam.onloadedmetadata = () => {
         webcam.play();
         statusWrapper.style.display = 'none';
-        if (reconnectInterval) {
-          clearInterval(reconnectInterval);
-          reconnectInterval = null;
-        }
+        if (reconnectInterval) clearInterval(reconnectInterval);
 
-        const tracks = stream.getVideoTracks();
-        if (tracks.length > 0 && tracks[0].onended === null) {
-          tracks[0].onended = () => {
-            console.warn('🔌 Camera disconnected (onended)');
+        const track = stream.getVideoTracks()[0];
+        if (track && track.onended === null) {
+          track.onended = () => {
+            console.warn('📴 Camera ended');
             enterReconnectMode();
           };
         }
@@ -198,45 +176,70 @@ async function setupCamera() {
         resolve();
       };
     });
-  } catch (err) {
-    console.warn('❌ Camera setup failed:', err);
+  } catch (e) {
+    console.warn('❌ No camera:', e);
     enterReconnectMode();
-    throw err;
+    throw e;
   }
 }
 
-function enterReconnectMode() {
+function enterReconnectMode () {
   statusWrapper.style.display = 'block';
   statusText.textContent = 'Searching for camera...';
 
   if (!reconnectInterval) {
     reconnectInterval = setInterval(async () => {
-      console.log('🔄 Retrying camera setup...');
       try {
         await setupCamera();
         startDetection();
-      } catch (e) {}
+      } catch { }
     }, 3000);
   }
 }
 
-function startDetection() {
+function drawDetectionBox (prediction, isPhone) {
+  const box = document.createElement('div');
+  box.className = 'detection-box';
+  box.style.left = `${prediction.bbox[0]}px`;
+  box.style.top = `${prediction.bbox[1]}px`;
+  box.style.width = `${prediction.bbox[2]}px`;
+  box.style.height = `${prediction.bbox[3]}px`;
+
+  const label = document.createElement('div');
+  label.className = 'detection-label';
+  label.textContent = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
+  box.appendChild(label);
+
+  if (isPhone) {
+    box.style.borderColor = '#EF4444';
+    box.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+    label.style.backgroundColor = '#EF4444';
+    box.classList.add('pulse');
+  }
+
+  detectionContainer.appendChild(box);
+}
+
+function startDetection () {
   if (isDetecting) return;
   isDetecting = true;
   detectionInterval = setInterval(detectObjects, 300);
 }
 
-async function detectObjects() {
+async function detectObjects () {
   if (!model || isAnimating) return;
+
   const predictions = await model.detect(webcam);
+  detectionContainer.innerHTML = '';
 
   let phoneDetected = false;
 
   predictions.forEach(pred => {
-    const predictionClass = pred.class.toLowerCase();
-    if (phoneClasses.includes(predictionClass)) {
-      phoneDetected = true;
-    }
+    const cls = pred.class.toLowerCase();
+    const isPhone = phoneClasses.includes(cls);
+    if (isPhone) phoneDetected = true;
+
+    drawDetectionBox(pred, isPhone);
   });
 
   if (phoneDetected) {
@@ -253,23 +256,21 @@ async function detectObjects() {
   }
 }
 
-async function init() {
+async function init () {
   statusText.textContent = 'Loading model...';
   model = await cocoSsd.load();
   console.log('✅ Model loaded');
 
   statusText.textContent = 'Placing images...';
   await preloadAndPlaceImages();
-  console.log('✅ Frames loaded');
-
   hideAllFrames();
   imageMap.default.style.visibility = 'visible';
 
   try {
     await setupCamera();
     startDetection();
-  } catch (e) {
-    console.warn('Camera will retry...');
+  } catch {
+    console.warn('Retrying camera...');
   }
 
   await listVideoDevices();
@@ -277,10 +278,7 @@ async function init() {
 
 window.addEventListener('DOMContentLoaded', init);
 window.addEventListener('keydown', e => {
-  if (e.key.toLowerCase() === 'q') {
-    switchCamera();
-  } else if (e.key.toLowerCase() === 'c') {
-    toggleDebugView();
-  }
+  if (e.key.toLowerCase() === 'q') switchCamera();
+  if (e.key.toLowerCase() === 'c') toggleDebugView();
 });
 navigator.mediaDevices.addEventListener('devicechange', listVideoDevices);
