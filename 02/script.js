@@ -10,7 +10,7 @@ let detectionInterval = null;
 let lastDetectionTime = 0;
 let currentState = 'default';
 let frameInterval = null;
-let frameRate = 60;
+let frameRate = 30;
 let reconnectInterval = null;
 let isAnimating = false;
 
